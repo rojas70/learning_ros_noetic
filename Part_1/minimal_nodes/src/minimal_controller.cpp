@@ -18,7 +18,7 @@ void myCallbackVelocity(const std_msgs::Float64& message_holder) {
 
 void myCallbackVelCmd(const std_msgs::Float64& message_holder) {
     // check for data on topic "vel_cmd" 
-    ROS_INFO("received velocity command value is: %f", message_holder.data);
+    ROS_INFO("received velocity command(vel_cmd) value is: %f", message_holder.data);
     g_vel_cmd.data = message_holder.data; // post the received data in a global var for access by 
     //main prog. 
 }
