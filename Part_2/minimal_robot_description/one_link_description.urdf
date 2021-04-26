@@ -7,6 +7,7 @@
   <joint name="glue_robot_to_world" type="fixed">
     <parent link="world"/>
     <child link="link1"/>
+  <!-- if absent origin/axis data then, child frame by defaul is identical to link1 -->
   </joint>
 
  <!-- Base Link -->
