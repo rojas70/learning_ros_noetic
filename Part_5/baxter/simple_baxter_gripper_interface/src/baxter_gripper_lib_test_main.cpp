@@ -12,8 +12,9 @@ int main(int argc, char** argv) {
 
     //instantiate a BaxterGripper object to do gripper I/O
     BaxterGripper baxterGripper(&nh);
+
     //wait for filter warm-up on right-gripper position
-    while (baxterGripper.get_right_gripper_pos()<-0.5) {
+    while (baxterGripper.get_right_gripper_pos()<-0.5 && ros::ok()) {
         ros::spinOnce();
         ros::Duration(0.01).sleep();
         ROS_INFO("waiting for right gripper position filter to settle; pos = %f", baxterGripper.get_right_gripper_pos());
@@ -22,11 +23,13 @@ int main(int argc, char** argv) {
     ROS_INFO("closing right gripper");
     baxterGripper.right_gripper_close();
     ros::Duration(1.0).sleep();
+
     ROS_INFO("opening right gripper");
     baxterGripper.right_gripper_open();
     ros::spinOnce();
+
     ROS_INFO("right gripper pos = %f; waiting for pos>95", baxterGripper.get_right_gripper_pos());
-    while (baxterGripper.get_right_gripper_pos() < 95.0) {
+    while (baxterGripper.get_right_gripper_pos() < 95.0 && ros::ok()) {
         baxterGripper.right_gripper_open();
         ros::spinOnce();
         ROS_INFO("gripper pos = %f", baxterGripper.get_right_gripper_pos());
@@ -36,14 +39,16 @@ int main(int argc, char** argv) {
     ROS_INFO("closing left gripper");
     baxterGripper.left_gripper_close();
     ros::Duration(1.0).sleep();
+
     ROS_INFO("opening left gripper");
     baxterGripper.left_gripper_open();
 
     ROS_INFO("closing right gripper");
     baxterGripper.right_gripper_close();
     ros::spinOnce();
+
     ROS_INFO("right gripper pos = %f; waiting for pos<90", baxterGripper.get_right_gripper_pos());
-    while (baxterGripper.get_right_gripper_pos() > 90.0) {
+    while (baxterGripper.get_right_gripper_pos() > 90.0 && ros::ok()) {
         baxterGripper.right_gripper_close();
         ros::spinOnce();
         ROS_INFO("gripper pos = %f", baxterGripper.get_right_gripper_pos());

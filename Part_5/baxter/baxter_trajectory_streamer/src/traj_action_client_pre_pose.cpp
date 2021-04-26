@@ -31,6 +31,7 @@ int main(int argc, char** argv) {
 
     Eigen::VectorXd q_pre_pose_right,q_pre_pose_left;
     Eigen::VectorXd q_vec_right_arm,q_vec_left_arm;
+    
     std::vector<Eigen::VectorXd> des_path_right, des_path_left;
     trajectory_msgs::JointTrajectory des_trajectory_right,des_trajectory_left; // empty trajectories     
     
@@ -116,8 +117,8 @@ int main(int argc, char** argv) {
        ros::Duration(1.0).sleep();
     }
     
-            ros::spinOnce();
-            cout<<"right arm is at: "<<baxter_traj_streamer.get_q_vec_right_arm_Xd().transpose()<<endl;
+    ros::spinOnce();
+    cout<<"right arm is at: "<<baxter_traj_streamer.get_q_vec_right_arm_Xd().transpose()<<endl;
 
     
     return 0;

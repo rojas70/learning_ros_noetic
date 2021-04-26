@@ -1574,7 +1574,9 @@ bool Baxter_IK_solver::improve_7dof_soln_wrt_torso(/* in  */ Eigen::Affine3d con
             ROS_WARN("IK improvement failed; retaining q_approx");
             q_7dof_precise=q_in;
         }
-               
+    roscd
+      ./baxter.sh sim
+      
     
     return valid;
 }
