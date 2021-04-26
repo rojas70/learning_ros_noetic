@@ -29,7 +29,9 @@
 #include<geometry_msgs/PoseStamped.h>
 #include<std_msgs/Bool.h>
 #include<sensor_msgs/JointState.h>
+
 //#include<moveit_msgs/DisplayTrajectory.h>
+
 #include <tf/transform_listener.h>
 #include <xform_utils/xform_utils.h>
 
@@ -39,28 +41,30 @@ const double ARM_ERR_TOL = 0.1; // tolerance btwn last joint commands and curren
 int g_js_doneCb_flag = 0;
 
 class ArmMotionInterface {
+
 private:
     ros::NodeHandle nh_; // we will need this, to pass between "main" and constructor
     XformUtils xformUtils;
+    
     //create an action server, which will be called "cartMoveActionServer"
     //this service will accept goals in Cartesian coordinates
     actionlib::SimpleActionServer<cartesian_planner::cart_moveAction> cart_move_as_;
 
-    //also create an action client, which will send joint-space goals to the trajectory interpolator service
+    // also create an action client, which will send joint-space goals to the trajectory interpolator service
     // THIS ONE IS FOR RIGHT ARM ONLY
     actionlib::SimpleActionClient<baxter_trajectory_streamer::trajAction> traj_streamer_action_client_;
 
     //messages to receive cartesian goals / return results:
-    cartesian_planner::cart_moveGoal cart_goal_;
-    cartesian_planner::cart_moveResult cart_result_;
+    cartesian_planner::cart_moveGoal    cart_goal_;
+    cartesian_planner::cart_moveResult  cart_result_;
 
     //messages to send goals/get results from joint-space interpolator action server:
-    baxter_trajectory_streamer::trajGoal js_goal_; //goal message to send to joint-space interpolator server
-    baxter_trajectory_streamer::trajResult js_result_; // server will populate this result, when done w/ goal
+    baxter_trajectory_streamer::trajGoal    js_goal_; //goal message to send to joint-space interpolator server
+    baxter_trajectory_streamer::trajResult  js_result_; // server will populate this result, when done w/ goal
 
     //callback fnc for joint-space action server to return result to this node:
-    void js_doneCb_(const actionlib::SimpleClientGoalState& state,
-            const baxter_trajectory_streamer::trajResultConstPtr& result);
+    void js_doneCb_(const actionlib::SimpleClientGoalState&                 state,
+                    const baxter_trajectory_streamer::trajResultConstPtr&   result);
 
     //callback function to receive and act on cartesian move goal requests
     //this is the key method in this node;
@@ -119,7 +123,7 @@ private:
 
     //Baxter_IK_solver baxter_IK_solver_; // instantiate an IK solver
     Baxter_fwd_solver baxter_fwd_solver_; //instantiate a forward-kinematics solver 
-    CartTrajPlanner cartTrajPlanner_; // from cartesian trajectory planner library
+    CartTrajPlanner     cartTrajPlanner_; // from cartesian trajectory planner library
 
     Baxter_traj_streamer baxter_traj_streamer_; //instantiate a Baxter_traj_streamer object and pass in pointer to nodehandle for constructor to use  
 
@@ -142,9 +146,11 @@ private:
     Eigen::Affine3d a_tool_start_, a_tool_end_;
     //ros::Publisher  minimal_publisher_;
     //ros::Publisher  display_traj_pub_; 
+
     Eigen::Vector3d delta_p_;
     Eigen::VectorXd q_vec_start_rqst_;
     Eigen::VectorXd q_vec_end_rqst_;
+
     Eigen::VectorXd q_vec_start_resp_;
     Eigen::VectorXd q_vec_end_resp_;
     Eigen::Affine3d a_flange_end_;
@@ -167,10 +173,7 @@ public:
     
     void display_affine(Eigen::Affine3d affine);
 
-
-
     Eigen::VectorXd get_jspace_start_(void); //choose between most recent cmd, or current jnt angs
-
 
     //the following methods correspond to command codes, via action message goals
     Eigen::VectorXd get_joint_angles(void);
@@ -181,9 +184,11 @@ public:
 
     // for PLAN_PATH_CURRENT_TO_GOAL_GRIPPER_POSE
     bool plan_path_current_to_goal_gripper_pose(); //uses goal.des_pose_gripper_right to plan a cartesian path
+    
     //bool plan_path_current_to_goal_flange_pose(); //interprets goal.des_pose_flange_right as a des FLANGE pose to plan a cartesian path
     //plan a joint-space path from current jspace pose to some soln of desired toolflange cartesian pose
     bool plan_jspace_path_current_to_cart_gripper_pose();
+    
     //bool plan_fine_path_current_to_goal_flange_pose(); //interprets goal.des_pose_flange_right as a des FLANGE pose to plan a cartesian path
     bool plan_fine_path_current_to_goal_gripper_pose();
     
@@ -195,9 +200,11 @@ public:
     // and RT_ARM_PLAN_JSPACE_PATH_CURRENT_TO_QGOAL
     bool plan_jspace_path_qstart_to_qend(Vectorq7x1 q_start, Vectorq7x1 q_goal);
     bool plan_jspace_path_qstart_to_qend(Eigen::VectorXd q_start_Xd, Eigen::VectorXd q_goal_Xd);
+    
     //bool jspace_path_planner_current_to_affine_goal(Eigen::Affine3d a_flange_end, std::vector<Eigen::VectorXd> &optimal_path);
     void rescale_planned_trajectory_time(double time_stretch_factor);
     bool refine_cartesian_path_soln();
+    
     //geometry_msgs/PoseStamped des_pose_gripper
     Eigen::Affine3d xform_gripper_pose_to_affine_flange_wrt_torso(geometry_msgs::PoseStamped des_pose_gripper);
 
@@ -205,8 +212,10 @@ public:
 
 void ArmMotionInterface::executeCB(const actionlib::SimpleActionServer<cartesian_planner::cart_moveAction>::GoalConstPtr& goal) {
     ROS_INFO("in executeCB of ArmMotionInterface");
-    cart_goal_ = *goal; // copy of goal held in member var
-    command_mode_ = goal->command_code;
+    
+    cart_goal_      = *goal;                                    // copy of goal held in member var
+    command_mode_   = goal->command_code;
+
     ROS_INFO_STREAM("received command mode " << command_mode_);
     int njnts;
 
@@ -216,14 +225,17 @@ void ArmMotionInterface::executeCB(const actionlib::SimpleActionServer<cartesian
             cart_result_.return_code = cartesian_planner::cart_moveResult::SUCCESS;
             cart_move_as_.setSucceeded(cart_result_);
             break;
+
             //looks up current right-arm joint angles and returns them to client
         case cartesian_planner::cart_moveGoal::GET_Q_DATA:
             ROS_INFO("responding to request GET_Q_DATA");
-            get_joint_angles(); //will update q_vec_right_arm_Xd_
+            get_joint_angles();                             // Will update q_vec_right_arm_Xd_
+            
             cart_result_.q_arm.resize(7);
             for (int i = 0; i < 7; i++) {
                 cart_result_.q_arm[i] = q_vec_Xd_[i];
             }
+            
             cart_result_.return_code = cartesian_planner::cart_moveResult::SUCCESS;
             cart_move_as_.setSucceeded(cart_result_);
             break;
@@ -231,18 +243,22 @@ void ArmMotionInterface::executeCB(const actionlib::SimpleActionServer<cartesian
         case cartesian_planner::cart_moveGoal::GET_TOOL_POSE:
             ROS_INFO("responding to request GET_TOOL_POSE");
             compute_tool_stamped_pose();
+
             cart_result_.current_pose_gripper = current_gripper_stamped_pose_;
             cart_result_.return_code = cartesian_planner::cart_moveResult::SUCCESS;
             cart_move_as_.setSucceeded(cart_result_);
             break;
+
             /*
-         case cartesian_planner::cart_moveGoal::GET_FLANGE_POSE:
+            case cartesian_planner::cart_moveGoal::GET_FLANGE_POSE:
             ROS_INFO("responding to request GET_FLANGE_POSE");
             compute_flange_stamped_pose();
             cart_result_.current_pose_flange = current_flange_stamped_pose_;
             cart_result_.return_code = cartesian_planner::cart_moveResult::SUCCESS;
             cart_move_as_.setSucceeded(cart_result_);
             break; */          
+
+            
             //prepares a trajectory plan to move arm from current pose to pre-defined pose
         case cartesian_planner::cart_moveGoal::PLAN_PATH_CURRENT_TO_WAITING_POSE:
             ROS_INFO("responding to request PLAN_PATH_CURRENT_TO_WAITING_POSE");
