@@ -1,9 +1,8 @@
 // object_grabber: wsn, Nov, 2016
-//define ObjectGrabber class; contains functionality to serve manipulation goals
-// action server name is: object_grabber_action_service
-// this layer accepts commands w/rt objects;
-// it converts these to corresponding gripper poses, and uses a cartesian-move action server to compute
-// and execute plans
+// Define ObjectGrabber class; contains functionality to serve manipulation goals
+// Action server name is: object_grabber_action_service
+
+// Take commands w/rt objects. Convert to gripper poses. Use cartesian-move action server to compute + execute plans
 // The cartesian-move action server is specific to a particular robot--but can expose a generic name for interactions
 // Should be able to use generic frames: system_ref_frame and generic_gripper_frame
 // Make sure there is a tf publisher for these for any robot that is launched
@@ -12,10 +11,10 @@
 using namespace std; 
 
 ObjectGrabber::ObjectGrabber(ros::NodeHandle* nodehandle) : nh_(*nodehandle),
-object_grabber_as_(nh_, "object_grabber_action_service", boost::bind(&ObjectGrabber::executeCB, this, _1), false),
- cart_move_action_client_("cartMoveActionServer", true) {
-    ROS_INFO("in constructor of ObjectGrabber");
-    //find out what type of gripper we have:
+                                                            object_grabber_as_(nh_, "object_grabber_action_service", boost::bind(&ObjectGrabber::executeCB, this, _1), false),
+                                                            cart_move_action_client_("cartMoveActionServer", true) {
+    ROS_INFO("ObjectGrabber Constructor");
+    
     if (!get_gripper_id()) {
         ROS_WARN("no gripper ID; quitting");
         exit(0);
@@ -24,8 +23,9 @@ object_grabber_as_(nh_, "object_grabber_action_service", boost::bind(&ObjectGrab
 
 
     manip_properties_client_ = nh_.serviceClient<object_manipulation_properties::objectManipulationQuery>("object_manip_query_svc");
-    //attempt to connect to the service:
-    ROS_INFO("waiting on manipulation-properties service: ");
+    
+    // (1) Attempt to connect to the objectManipulationQuery service:
+    ROS_INFO(" Waiting on manipulation-properties service: ");
     manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::TEST_PING;
     double t_test = 0;
     while (!manip_properties_client_.call(manip_properties_srv_)) {
@@ -36,7 +36,8 @@ object_grabber_as_(nh_, "object_grabber_action_service", boost::bind(&ObjectGrab
     }
     
     gripper_client_ = nh_.serviceClient<generic_gripper_services::genericGripperInterface>("generic_gripper_svc");
-    //attempt to connect to the service:
+    
+    // (2) Attempt to connect to the genericGripperInterface service:
     ROS_INFO("waiting on gripper interface service: ");
     gripper_srv_.request.cmd_code = generic_gripper_services::genericGripperInterfaceRequest::TEST_PING;
     t_test = 0;
@@ -47,7 +48,7 @@ object_grabber_as_(nh_, "object_grabber_action_service", boost::bind(&ObjectGrab
         if (t_test > 2.0) ROS_WARN("can't connect to service generic_gripper_svc; is it running?");
     }    
     
-    // attempt to connect to the server:
+    // (3) Attempt to connect to the Car-Move Action Server:
     /*
     ROS_INFO("waiting for cartesian-move action server: ");
     bool server_exists = false;
@@ -82,25 +83,26 @@ void ObjectGrabber::cartMoveDoneCb_(const actionlib::SimpleClientGoalState& stat
     cart_result_ = *result;
 }
 
-//simplified use of manip_properties query: use the 0'th grasp option; intentionally construct
-// the manip_properties service such that the 0'th option is the preferred/default option
+// Simplified use of manip_properties query!! Use the 0'th grasp option
+// Intentionally construct the manip_properties service such that the 0'th option is the preferred/default option
 // TODO: construct means to test viability of default option, and test/choose alternatives, if necessary
 bool ObjectGrabber::get_default_grab_poses(int object_id,geometry_msgs::PoseStamped object_pose_stamped) {
     //fill in 3 necessary poses: approach, grasp, depart_w_object
     //find out what the default grasp strategy is for this gripper/object combination:
-    manip_properties_srv_.request.gripper_ID = gripper_id_; //this is known from parameter server
-    manip_properties_srv_.request.object_ID = object_id;
-    manip_properties_srv_.request.query_code =
-            object_manipulation_properties::objectManipulationQueryRequest::GRASP_STRATEGY_OPTIONS_QUERY;
+    manip_properties_srv_.request.gripper_ID    = gripper_id_; //this is known from parameter server
+    manip_properties_srv_.request.object_ID     = object_id;
+    manip_properties_srv_.request.query_code    = object_manipulation_properties::objectManipulationQueryRequest::GRASP_STRATEGY_OPTIONS_QUERY;
     manip_properties_client_.call(manip_properties_srv_);
+
     int n_grasp_strategy_options = manip_properties_srv_.response.grasp_strategy_options.size();
     ROS_INFO("there are %d grasp options for this gripper/object combo; choosing 1st option (default)",n_grasp_strategy_options);
     if (n_grasp_strategy_options<1) return false;
-    int grasp_option = manip_properties_srv_.response.grasp_strategy_options[0];
-    ROS_INFO("chosen grasp strategy is code %d",grasp_option);
-    //use this grasp strategy for finding corresponding grasp pose
 
+    int grasp_option = manip_properties_srv_.response.grasp_strategy_options[0];    // Ue this grasp strategy for finding corresponding grasp pose
+    ROS_INFO("chosen grasp strategy is code %d",grasp_option);
     
+
+    // Get Grasp Transforms    
     manip_properties_srv_.request.grasp_option = grasp_option; //default option for grasp strategy
     manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::GET_GRASP_POSE_TRANSFORMS;
     manip_properties_client_.call(manip_properties_srv_);
@@ -114,20 +116,22 @@ bool ObjectGrabber::get_default_grab_poses(int object_id,geometry_msgs::PoseStam
     //ROS_INFO("default grasped pose of object w/rt gripper: ");
     //xformUtils.printPose(grasp_object_pose_wrt_gripper_);
     
-    //--------------now get the approach pose; first, find the default approach strategy:
-     manip_properties_srv_.request.query_code =
-            object_manipulation_properties::objectManipulationQueryRequest::APPROACH_STRATEGY_OPTIONS_QUERY;
+    // ------------ Approach strategy/pose
+     manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::APPROACH_STRATEGY_OPTIONS_QUERY;
     manip_properties_client_.call(manip_properties_srv_);
+
     int n_approach_strategy_options = manip_properties_srv_.response.grasp_strategy_options.size();
     ROS_INFO("there are %d approach options for this gripper/object combo; choosing 1st option (default)",n_approach_strategy_options);
+
     if (n_approach_strategy_options<1) return false;
     int approach_option = manip_properties_srv_.response.grasp_strategy_options[0];
     ROS_INFO("chosen approach strategy is code %d",approach_option);
     
-    //use this grasp strategy for finding corresponding grasp pose
+    // Use this grasp strategy to find approach pose
     manip_properties_srv_.request.grasp_option = approach_option; //default option for grasp strategy
     manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::GET_APPROACH_POSE_TRANSFORMS;
-     manip_properties_client_.call(manip_properties_srv_);
+    manip_properties_client_.call(manip_properties_srv_);
+
     int n_approach_pose_options = manip_properties_srv_.response.gripper_pose_options.size();
     if (n_approach_pose_options<1) {
                     ROS_WARN("no approach pose options returned for gripper_ID %d and object_ID %d",gripper_id_,object_id);
@@ -138,18 +142,20 @@ bool ObjectGrabber::get_default_grab_poses(int object_id,geometry_msgs::PoseStam
     //ROS_INFO("default approach pose, expressed as pose of object w/rt gripper at approach: ");
     //xformUtils.printPose(approach_object_pose_wrt_gripper_);   
 
-    //now get the depart (w/ grasped object) pose:  
-    manip_properties_srv_.request.query_code =
-            object_manipulation_properties::objectManipulationQueryRequest::DEPART_STRATEGY_OPTIONS_QUERY;
+
+    // ------------ Depart strategy/pose
+    manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::DEPART_STRATEGY_OPTIONS_QUERY;
     manip_properties_client_.call(manip_properties_srv_);
+    
     int n_depart_strategy_options = manip_properties_srv_.response.grasp_strategy_options.size();
     ROS_INFO("there are %d depart options for this gripper/object combo; choosing 1st option (default)",n_depart_strategy_options);
+
     if (n_depart_strategy_options<1) return false;
     int depart_option = manip_properties_srv_.response.grasp_strategy_options[0];
     ROS_INFO("chosen depart strategy is code %d",depart_option);
     
-    //use this grasp strategy for finding corresponding grasp pose
-    manip_properties_srv_.request.grasp_option = depart_option; //default option for grasp strategy    
+    // Use depart option to find depart pose. 
+    manip_properties_srv_.request.grasp_option = depart_option;    
     
     manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::GET_DEPART_POSE_TRANSFORMS;
      manip_properties_client_.call(manip_properties_srv_);
@@ -159,29 +165,31 @@ bool ObjectGrabber::get_default_grab_poses(int object_id,geometry_msgs::PoseStam
                     ROS_WARN("should not happen--apparent bug in manipulation properties service");
                     return false;
                 }   
-    depart_object_pose_wrt_gripper_= manip_properties_srv_.response.gripper_pose_options[0]; //using the 0'th, i.e. default option
-    //this is expressed somewhat strangely.  Often, this pose will be identical to approach_object_pose_wrt_gripper_
-    //expresses original (ungrasped) pose of object from viewpoint of gripper when gripper is at the depart pose,
-    // though this depart pose presumably would be holding the object of interest
+
+    // Note: using the 0'th, i.e. default option. this is expressed somewhat strangely.  
+    // Often, this pose will be identical to approach_object_pose_wrt_gripper_
+    // expresses original (ungrasped) pose of object from viewpoint of gripper when gripper is at the depart pose,
+    // though this depart pose presumably would be holding the object of interest                
+    depart_object_pose_wrt_gripper_= manip_properties_srv_.response.gripper_pose_options[0]; 
     //ROS_INFO("default depart pose, expressed as original pose of object w/rt gripper at depart: ");
     //xformUtils.printPose(depart_object_pose_wrt_gripper_);   
     
-    //use these relative values to compute gripper poses w/rt system ref frame--using the object's pose w/rt
-    // it's named frame_id
-    //object_pose_stamped
-    //logic: grasp_object_pose_wrt_gripper_: can say object pose w/rt generic_gripper_frame;
-    // also know object pose w/rt some named frame, e.g. system_ref_frame
+    // Gripper pose wrt System Frame Transformations:
+    // use these relative values to compute gripper poses w/rt system ref frame--using the object's pose w/rt its
+    //      named frame_id
+    //      object_pose_stamped
+    // Logic: 
+    // grasp_object_pose_wrt_gripper_: tells object pose w/rt generic_gripper_frame;
+    // We also know: object pose w/rt system_ref_frame (i.e. base)
     // use these to solve for generic_gripper_frame w/rt some named frame (e.g. object's frame_id)
     // given A_obj/gripper and A_obj/sys --> A_gripper/sys
-    //stf of object frame w/rt its specified frame_id (from object_pose_stamped)
+    // stf of object frame w/rt its specified frame_id (from object_pose_stamped)
     ROS_INFO("computing grasp stf: ");
-    tf::StampedTransform object_stf = 
-            xformUtils.convert_poseStamped_to_stampedTransform(object_pose_stamped, "object_frame");
+    tf::StampedTransform object_stf = xformUtils.convert_poseStamped_to_stampedTransform(object_pose_stamped, "object_frame");
     geometry_msgs::PoseStamped object_wrt_gripper_ps;
     object_wrt_gripper_ps.pose = grasp_object_pose_wrt_gripper_;
     object_wrt_gripper_ps.header.frame_id = "generic_gripper_frame";
-    tf::StampedTransform object_wrt_gripper_stf = 
-            xformUtils.convert_poseStamped_to_stampedTransform(object_wrt_gripper_ps, "object_frame"); 
+    tf::StampedTransform object_wrt_gripper_stf = xformUtils.convert_poseStamped_to_stampedTransform(object_wrt_gripper_ps, "object_frame"); 
     //ROS_INFO("object w/rt gripper stf: ");
     //xformUtils.printStampedTf(object_wrt_gripper_stf);
     tf::StampedTransform gripper_wrt_object_stf = xformUtils.stamped_transform_inverse(object_wrt_gripper_stf); //object_wrt_gripper_stf.inverse();

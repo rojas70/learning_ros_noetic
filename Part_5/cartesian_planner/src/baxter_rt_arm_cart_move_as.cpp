@@ -8,7 +8,7 @@
 // move goals are specified as geometry_msgs::PoseStamped;
 // it is assumed that the move goals refer to the tool frame with respect to the torso frame
 
-//NOTE: PLAN_PATH_CURRENT_TO_GOAL_GRIPPER_POSE does: unpack_goal_pose(),
+// NOTE: PLAN_PATH_CURRENT_TO_GOAL_GRIPPER_POSE does: unpack_goal_pose(),
 // which does:     a_flange_end_ = a_tool_end_*A_tool_wrt_flange_.inverse();
 // then ik functions are w/rt desired flange frame
 
@@ -327,39 +327,43 @@ void ArmMotionInterface::executeCB(const actionlib::SimpleActionServer<cartesian
 //CONSTRUCTOR: pass in a node handle and perform initializations (w/ initializers)
 
 ArmMotionInterface::ArmMotionInterface(ros::NodeHandle* nodehandle) : nh_(*nodehandle),
-cart_move_as_(*nodehandle, "cartMoveActionServer", boost::bind(&ArmMotionInterface::executeCB, this, _1), false),
-baxter_traj_streamer_(nodehandle),
-traj_streamer_action_client_("rightArmTrajActionServer", true) { // constructor
+                                                                      cart_move_as_(*nodehandle, "cartMoveActionServer", boost::bind(&ArmMotionInterface::executeCB, this, _1), false),
+                                                                      baxter_traj_streamer_(nodehandle),
+                                                                      traj_streamer_action_client_("rightArmTrajActionServer", true) { // constructor
     ROS_INFO("in class constructor of ArmMotionInterface");
 
     //initialize variables here, as needed
     q_pre_pose_ << -0.907528, -0.111813, 2.06622, 1.8737, -1.295, 2.00164, 0;
     q_pre_pose_Xd_ = q_pre_pose_; // copy--in VectorXd format
-    q_vec_start_rqst_ = q_pre_pose_; // 0,0,0,0,0,0,0; // make this a 7-d vector
-    q_vec_end_rqst_ = q_pre_pose_; //<< 0,0,0,0,0,0,0;
-    q_vec_start_resp_ = q_pre_pose_; //<< 0,0,0,0,0,0,0;
-    q_vec_end_resp_ = q_pre_pose_; //<< 0,0,0,0,0,0,0;
-    R_gripper_down_ = cartTrajPlanner_.get_R_gripper_down();
+
+    q_vec_start_rqst_   = q_pre_pose_; // 0,0,0,0,0,0,0; // make this a 7-d vector
+    q_vec_end_rqst_     = q_pre_pose_; //<< 0,0,0,0,0,0,0;
+
+    q_vec_start_resp_   = q_pre_pose_; //<< 0,0,0,0,0,0,0;
+    q_vec_end_resp_     = q_pre_pose_; //<< 0,0,0,0,0,0,0;
+
+    R_gripper_down_     = cartTrajPlanner_.get_R_gripper_down();
 
     //access constants defined in action message this way:
     command_mode_ = cartesian_planner::cart_moveGoal::ARM_TEST_MODE;
 
-    received_new_request_ = false;
-    busy_working_on_a_request_ = false;
-    path_is_valid_ = false;
-    path_id_ = 0;
+    received_new_request_       = false;
+    busy_working_on_a_request_  = false;
+    path_is_valid_              = false;
+    path_id_                    = 0;
     // can also do tests/waits to make sure all required services, topics, etc are alive
     
     tfListener_ = new tf::TransformListener;  //create a transform listener and assign its pointer
 
-    bool tferr=true;
-    int ntries=0;
+    bool tferr = true;
+    int ntries = 0;
     ROS_INFO("waiting for tf between generic gripper frame and tool flange...");
 
     while (tferr) {
         tferr=false;
         try {
                 tfListener_->lookupTransform("generic_gripper_frame","right_hand",  ros::Time(0), generic_toolflange_frame_wrt_gripper_frame_stf_);
+
             } catch(tf::TransformException &exception) {
                 ROS_WARN("%s; retrying...", exception.what());
                 tferr=true;
@@ -668,14 +672,18 @@ Eigen::Affine3d ArmMotionInterface::xform_gripper_pose_to_affine_flange_wrt_tors
 // assume gripper pose is in frame "generic_gripper_frame"; need to transform this to Baxter gripper frame
 // also, frame_id of this pose needs to get converted to "torso" frame
 bool ArmMotionInterface::plan_path_current_to_goal_gripper_pose() {
-    ROS_INFO("computing a cartesian trajectory to gripper goal pose");   
+
+    ROS_INFO("Computing a cartesian trajectory to gripper goal pose");   
     //ROS_WARN("plan_path_current_to_goal_gripper_pose: goal_gripper_pose_");
+
     goal_gripper_pose_ = cart_goal_.des_pose_gripper;
+
     xformUtils.printStampedPose(goal_gripper_pose_);
     goal_flange_affine_ = xform_gripper_pose_to_affine_flange_wrt_torso(goal_gripper_pose_);
     
     ROS_INFO("flange goal");
     display_affine(goal_flange_affine_);
+
     Vectorq7x1 q_start;
     q_start = get_jspace_start_(); // choose last cmd, or current joint angles
     path_is_valid_ = cartTrajPlanner_.cartesian_path_planner(q_start, goal_flange_affine_, optimal_path_);
@@ -686,6 +694,7 @@ bool ArmMotionInterface::plan_path_current_to_goal_gripper_pose() {
         cart_result_.return_code = cartesian_planner::cart_moveResult::SUCCESS;
         cart_result_.computed_arrival_time = computed_arrival_time_;
         cart_move_as_.setSucceeded(cart_result_);
+
     } else {
         cart_result_.return_code = cartesian_planner::cart_moveResult::PATH_NOT_VALID;
         cart_result_.computed_arrival_time = -1.0; //impossible arrival time        
@@ -789,6 +798,7 @@ bool ArmMotionInterface::plan_path_current_to_goal_dp_xyz() {
     Eigen::Vector3d dp_vec;
 
     ROS_INFO("called plan_path_current_to_goal_dp_xyz");
+
     //unpack the goal pose:
     int ndim = cart_goal_.arm_dp.size();
     if (ndim != 3) {
@@ -799,6 +809,7 @@ bool ArmMotionInterface::plan_path_current_to_goal_dp_xyz() {
     }
     for (int i = 0; i < 3; i++) dp_vec[i] = cart_goal_.arm_dp[i];
     ROS_INFO("requested dp = %f, %f, %f", dp_vec[0], dp_vec[1], dp_vec[2]);
+
     Vectorq7x1 q_start;
     q_start = get_jspace_start_(); // choose last cmd, or current joint angles    
     path_is_valid_ = plan_cartesian_delta_p(q_start, dp_vec);

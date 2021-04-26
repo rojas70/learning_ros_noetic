@@ -8,14 +8,14 @@
 
 #return codes provide status info, e.g. if a proposed move is reachable
 
-#define message constants:  
+# COMMAND CODES: 
 uint8 ARM_TEST_MODE = 0
 
 # Queries
-uint8 ARM_IS_SERVER_BUSY_QUERY  = 1
-uint8 ARM_QUERY_IS_PATH_VALID   = 2
-uint8 GET_TOOL_POSE             = 5
-uint8 GET_Q_DATA                = 7
+uint8 ARM_IS_SERVER_BUSY_QUERY                      = 1
+uint8 ARM_QUERY_IS_PATH_VALID                       = 2
+uint8 GET_TOOL_POSE                                 = 5
+uint8 GET_Q_DATA                                    = 7
 
 # Motion plan requests 
 #uint8 PLAN_PATH_CURRENT_TO_PRE_POSE=20 #synonym
