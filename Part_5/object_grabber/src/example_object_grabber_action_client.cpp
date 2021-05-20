@@ -88,6 +88,7 @@ void move_to_waiting_pose() {
 void grab_object(geometry_msgs::PoseStamped object_pickup_poseStamped) {
     ROS_INFO("sending a grab-object command");
     g_got_callback=false; //reset callback-done flag
+    
     object_grabber::object_grabberGoal object_grabber_goal;
     object_grabber_goal.action_code  = object_grabber::object_grabberGoal::GRAB_OBJECT;             // Action to be performed 
     object_grabber_goal.object_id    = ObjectIdCodes::TOY_BLOCK_ID;                                 // Obj to manipulate                 

@@ -1,20 +1,12 @@
-//example_tf_listener.cpp:
-//wsn, March 2016
-//illustrative node to show use of tf listener, with reference to the simple mobile-robot model
-// specifically, frames: odom, base_frame, link1 and link2
-
-// this header incorporates all the necessary #include files and defines the class "DemoTfListener"
 #include "example_tf_listener.h"
 using namespace std;
-
-//main pgm to illustrate transform operations
 
 int main(int argc, char** argv) {
     // ROS set-ups:
     ros::init(argc, argv, "demoTfListener"); //node name
-    ros::NodeHandle nh; // create a node handle; need to pass this to the class constructor
+    ros::NodeHandle nh; 
     ROS_INFO("main: instantiating an object of type DemoTfListener");
-    DemoTfListener demoTfListener(&nh); //instantiate an ExampleRosClass object and pass in pointer to nodehandle for constructor to use
+    DemoTfListener demoTfListener(&nh); 
 
     tf::StampedTransform stfBaseToLink2, stfBaseToLink1, stfLink1ToLink2;
     tf::StampedTransform testStfBaseToLink2;

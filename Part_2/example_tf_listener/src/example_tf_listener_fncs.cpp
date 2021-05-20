@@ -1,30 +1,17 @@
-//example_tf_listener_fncs.cpp:
-//wsn, March 2016
-//implementation of member functions of DemoTfListener class
-
 #include "example_tf_listener.h"
 using namespace std;
 
-//constructor: don't need nodehandle here, but could be handy if want to add a subscriber
 DemoTfListener::DemoTfListener(ros::NodeHandle* nodehandle):nh_(*nodehandle)
 { 
     ROS_INFO("in class constructor of DemoTfListener");
-    tfListener_ = new tf::TransformListener;  //create a transform listener and assign its pointer
-    //here, the tfListener_ is a pointer to this object, so must use -> instead of "." operator
-    //somewhat more complex than creating a tf_listener in "main()", but illustrates how
-    // to instantiate a tf_listener within a class
+    tfListener_ = new tf::TransformListener;
     
-    // wait to start receiving valid tf transforms between base_link and link2:
-    // this example is specific to our mobot, which has a base_link and a link2
-    // lookupTransform will through errors until a valid chain has been found from target to source frames
     bool tferr=true;
     ROS_INFO("waiting for tf between link2 and base_link...");
     tf::StampedTransform tfLink2WrtBaseLink; 
     while (tferr) {
         tferr=false;
         try {
-                //try to lookup transform, link2-frame w/rt base_link frame; this will test if
-            // a valid transform chain has been published from base_frame to link2
                 tfListener_->lookupTransform("base_link", "link2", ros::Time(0), tfLink2WrtBaseLink);
             } catch(tf::TransformException &exception) {
                 ROS_WARN("%s; retrying...", exception.what());
@@ -34,22 +21,12 @@ DemoTfListener::DemoTfListener(ros::NodeHandle* nodehandle):nh_(*nodehandle)
             }   
     }
     ROS_INFO("tf is good");
-    // from now on, tfListener will keep track of transforms; do NOT need ros::spin(), since
-    // tf_listener gets spawned as a separate thread
-}
 
-
-//some conversion utilities:
-//getting a transform from a stamped transform is trickier than expected--there is not "get" fnc for transform
-tf::Transform DemoTfListener::get_tf_from_stamped_tf(tf::StampedTransform sTf) {
+    tf::Transform DemoTfListener::get_tf_from_stamped_tf(tf::StampedTransform sTf) {
    tf::Transform tf(sTf.getBasis(),sTf.getOrigin()); //construct a transform using elements of sTf
    return tf;
 }
 
-//a transform describes the position and orientation of a frame w/rt a reference frame
-//a Pose is a position and orientation of a frame of interest w/rt a reference frame
-// can re-interpret a transform as a named pose using this example function
-// the PoseStamped also has a header, which includes naming the reference frame
 geometry_msgs::PoseStamped DemoTfListener::get_pose_from_transform(tf::StampedTransform tf) {
   //clumsy conversions--points, vectors and quaternions are different data types in tf vs geometry_msgs
   geometry_msgs::PoseStamped stPose;

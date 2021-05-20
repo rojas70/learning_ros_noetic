@@ -1,8 +1,3 @@
-//xform_pose.cpp: example use of xform_utils
-// populate a hard-coded geometry_msgs::Pose, convert to Affine,
-// construct a 2nd Affine derived from this Affine;
-// convert the 2nd Affine back to a geometry_msgs::Pose
-//wsn 8/16
 #include<ros/ros.h>
 #include <xform_utils/xform_utils.h>
 using namespace std;
@@ -25,6 +20,7 @@ int main(int argc, char** argv) {
     object_pose.orientation.w = 0.54;
     ROS_INFO("object pose: ");
     xformUtils.printPose(object_pose);
+
     Eigen::Affine3d object_affine, gripper_affine;
     //use XformUtils to convert from pose to affine:
     object_affine = xformUtils.transformPoseToEigenAffine3d(object_pose);
@@ -44,6 +40,7 @@ int main(int argc, char** argv) {
     R_gripper.col(1) = y_axis;
     R_gripper.col(2) = z_axis;
     gripper_affine.linear() = R_gripper; //populate affine w/ orientation
+
     gripper_affine.translation() = object_affine.translation(); //and origin
     cout << "gripper_affine origin: " << gripper_affine.translation().transpose() << endl;
     cout << "gripper_affine R matrix: " << endl;

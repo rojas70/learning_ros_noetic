@@ -117,7 +117,7 @@ bool ObjectGrabber::get_default_grab_poses(int object_id,geometry_msgs::PoseStam
     //xformUtils.printPose(grasp_object_pose_wrt_gripper_);
     
     // ------------ Approach strategy/pose
-     manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::APPROACH_STRATEGY_OPTIONS_QUERY;
+    manip_properties_srv_.request.query_code = object_manipulation_properties::objectManipulationQueryRequest::APPROACH_STRATEGY_OPTIONS_QUERY;
     manip_properties_client_.call(manip_properties_srv_);
 
     int n_approach_strategy_options = manip_properties_srv_.response.grasp_strategy_options.size();
@@ -420,20 +420,28 @@ bool ObjectGrabber::get_default_dropoff_poses(int object_id,geometry_msgs::PoseS
     return true;
 }
 
-//grab-object function w/ 2 args is default strategy for approach, grasp depart:
+//********************************************************************************************
+// Given (i) gripper_ID, (ii) object_ID, (iii) object poseStamped + assuming default approach
+// for the grasp and depart strategies for this object/gripper combo,
+// compute the corresponding required gripper-frame poses w/rt a named frame_id
+// (which will be same frame_id as specified in object poseStamped)
+//********************************************************************************************
 int  ObjectGrabber::grab_object(int object_id,geometry_msgs::PoseStamped object_pose_stamped){
-    //given gripper_ID, object_ID and object poseStamped,
-    // and assuming default approach, grasp and depart strategies for this object/gripper combo,
-    // compute the corresponding required gripper-frame poses w/rt a named frame_id
-    // (which will be same frame_id as specified in object poseStamped)
+
     int rtn_val;
     bool success;
+
+    // Get approach_pose_, grasp_pose_, depart_pose_
     if(!get_default_grab_poses(object_id,object_pose_stamped)) {
         ROS_WARN("no valid grasp strategy; giving up");
         return object_grabber::object_grabberResult::NO_KNOWN_GRASP_OPTIONS_THIS_GRIPPER_AND_OBJECT;
     }
-    //invoke the sequence of moves to perform approach, grasp, depart:
+
+    // Invoke the sequence of moves to perform approach, grasp, depart:
     ROS_WARN("prepare gripper state to anticipate grasp...");
+
+    // 1. Approach
+    // 1a. Open hand
     gripper_srv_.request.cmd_code = generic_gripper_services::genericGripperInterfaceRequest::RELEASE;
     gripper_client_.call(gripper_srv_); 
     success = gripper_srv_.response.success;
@@ -443,23 +451,33 @@ int  ObjectGrabber::grab_object(int object_id,geometry_msgs::PoseStamped object_
     ROS_WARN("object-grabber as planning joint-space move to approach pose");
     //xformUtils.printPose(approach_pose_);
 
+    // 1b. Approach motion
+    // Plan
     rtn_val=arm_motion_commander_.plan_jspace_path_current_to_cart_gripper_pose(approach_pose_);
     if (rtn_val != cartesian_planner::cart_moveResult::SUCCESS) return rtn_val; //return error code
         
-    //send command to execute planned motion
+    // Execute 
     ROS_INFO("executing plan: ");
     rtn_val=arm_motion_commander_.execute_planned_path();
     if (rtn_val != cartesian_planner::cart_moveResult::SUCCESS) return rtn_val; //return error code
     //ros::Duration(2.0).sleep();
     
+
+    // 2. Grasp 
     ROS_INFO("planning motion of gripper to grasp pose at: ");
     xformUtils.printPose(grasp_pose_);
+
+    // Plan
     rtn_val=arm_motion_commander_.plan_path_current_to_goal_gripper_pose(grasp_pose_);
     if (rtn_val != cartesian_planner::cart_moveResult::SUCCESS) return rtn_val; //return error code
+
+    // Execute
     ROS_INFO("executing plan: ");
     rtn_val=arm_motion_commander_.execute_planned_path();   
     ROS_WARN("poised to grasp object; invoke gripper grasp action here ...");
 
+    // Close hand
+    // Plan
     gripper_srv_.request.cmd_code = generic_gripper_services::genericGripperInterfaceRequest::GRASP;
     gripper_client_.call(gripper_srv_); 
     success = gripper_srv_.response.success;
@@ -467,14 +485,18 @@ int  ObjectGrabber::grab_object(int object_id,geometry_msgs::PoseStamped object_
     if (success) { ROS_INFO("gripper responded w/ success"); }
     else {ROS_WARN("responded with failure"); }    
  
+    // 3. Depart Pose
     ROS_INFO("planning motion of gripper to depart pose at: ");
     xformUtils.printPose(depart_pose_);
+
+    // Plan
     rtn_val=arm_motion_commander_.plan_path_current_to_goal_gripper_pose(depart_pose_);
     if (rtn_val != cartesian_planner::cart_moveResult::SUCCESS) return rtn_val; //return error code
     ROS_INFO("performing motion");
+
+    // Execute
     rtn_val=arm_motion_commander_.execute_planned_path();
- 
-    
+     
     return rtn_val; 
 }
 
@@ -537,6 +559,7 @@ int  ObjectGrabber::dropoff_object(int object_id,geometry_msgs::PoseStamped desi
 void ObjectGrabber::executeCB(const actionlib::SimpleActionServer<object_grabber::object_grabberAction>::GoalConstPtr& goal) {
     int action_code = goal->action_code;
     ROS_INFO("got action code %d", action_code);
+
     int object_grabber_rtn_code, rtn_val;
     int object_id;
     int grasp_option; //code for one of N enumerated grasp-strategy options relevant to a given object/gripper combo
@@ -544,7 +567,9 @@ void ObjectGrabber::executeCB(const actionlib::SimpleActionServer<object_grabber
     // approach to deposit a part, and gripper withdrawal strategy after releasing a part
     int approach_strategy, lift_object_strategy, dropoff_strategy, dropoff_withdraw_strategy;
     bool have_default_grasp_plan;
+
     switch (action_code) {
+
         case object_grabber::object_grabberGoal::TEST_CODE:
             ROS_INFO("got test ping");
             arm_motion_commander_.send_test_goal(); // send a test command
@@ -555,9 +580,15 @@ void ObjectGrabber::executeCB(const actionlib::SimpleActionServer<object_grabber
             //need ability to get hand out of way of camera
         case object_grabber::object_grabberGoal::MOVE_TO_WAITING_POSE:
             ROS_INFO("planning move to waiting pose");
+
+            // Plan
             rtn_val = arm_motion_commander_.plan_move_to_waiting_pose(); //this should always be successful
             ROS_INFO("commanding plan execution");
+            
+            // Execute
             rtn_val = arm_motion_commander_.execute_planned_path();
+            
+            // Set result
             grab_result_.return_code = rtn_val;
             object_grabber_as_.setSucceeded(grab_result_);
             //cart_goal_.command_code = cartesian_planner::cart_moveGoal::PLAN_PATH_CURRENT_TO_WAITING_POSE;
@@ -567,31 +598,42 @@ void ObjectGrabber::executeCB(const actionlib::SimpleActionServer<object_grabber
 
         case object_grabber::object_grabberGoal::GRAB_OBJECT:
             ROS_INFO("GRAB_OBJECT: ");
-            object_id = goal->object_id;
-            grasp_option = goal->grasp_option;
+            object_id            = goal->object_id;
+            grasp_option         = goal->grasp_option;
             object_pose_stamped_ = goal->object_frame;
-            //get grasp-plan details for this case:
+
+            // Get grasp-plan details for this case:
             if (grasp_option != object_grabber::object_grabberGoal::DEFAULT_GRASP_STRATEGY)
             {
                 ROS_WARN("grasp strategy %d not implemented yet; using default strategy",grasp_option);
             }
+
+            // Invoke action seq to perform: release/approach/depart
             rtn_val = grab_object(object_id,object_pose_stamped_);
             ROS_INFO("grasp attempt concluded");
+
+            // Set result
             grab_result_.return_code = rtn_val;
             object_grabber_as_.setSucceeded(grab_result_);
             break;
+
         case object_grabber::object_grabberGoal::DROPOFF_OBJECT:
             ROS_INFO("DROPOFF_OBJECT: ");
-            object_id = goal->object_id;
-            grasp_option = goal->grasp_option;
+            object_id            = goal->object_id;
+            grasp_option         = goal->grasp_option;
             object_pose_stamped_ = goal->object_frame;
-            //get grasp-plan details for this case:
+
+            // Get grasp-plan details for this case:
             if (grasp_option != object_grabber::object_grabberGoal::DEFAULT_GRASP_STRATEGY)
             {
                 ROS_WARN("grasp strategy %d not implemented yet; using default strategy",grasp_option);
             }
+
+
             rtn_val = dropoff_object(object_id,object_pose_stamped_);
             ROS_INFO("dropoff attempt concluded");
+            
+            // Set Result
             grab_result_.return_code = rtn_val;
             object_grabber_as_.setSucceeded(grab_result_);
             break;

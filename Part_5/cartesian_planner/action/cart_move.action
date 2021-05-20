@@ -9,7 +9,7 @@
 #return codes provide status info, e.g. if a proposed move is reachable
 
 # COMMAND CODES: 
-uint8 ARM_TEST_MODE = 0
+uint8 ARM_TEST_MODE                                 = 0
 
 # Queries
 uint8 ARM_IS_SERVER_BUSY_QUERY                      = 1
