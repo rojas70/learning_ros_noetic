@@ -12,7 +12,7 @@ To do so, navigate to ~/ros_ws/src from a terminal and enter:
 ```
 and also clone the external packages used with:
 ```
-`git clone -r https://github.com/rojas70/learning_ros_external_packages_noetic.git`
+`git clone https://github.com/rojas70/learning_ros_external_pkgs_noetic.git`
 ```
 
 Then, from a terminal, navigate to ~/ros_ws and compile the code with the command:
